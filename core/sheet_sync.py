@@ -33,6 +33,7 @@ def export_matrix_to_ledger(
     json_path: str = DEFAULT_JSON_PATH,
 ) -> List[Dict[str, Any]]:
     """Export the feature comparison matrix to CSV and JSON ledgers."""
+    os.makedirs("data", exist_ok=True)
     os.makedirs(os.path.dirname(os.path.abspath(csv_path)), exist_ok=True)
     os.makedirs(os.path.dirname(os.path.abspath(json_path)), exist_ok=True)
 

@@ -250,7 +250,7 @@ with tabs[0]:
                 value="https://linear.app/changelog",
             )
 
-    start_button = st.button("🚀 Run Agentic Scout Pipeline", type="primary", use_container_width=True)
+    start_button = st.button("🚀 Run Agentic Scout Pipeline", type="primary", width="stretch")
 
     if start_button:
         thread_id = f"thread_{int(time.time())}"
@@ -296,7 +296,7 @@ with tabs[0]:
             st.session_state.graph = graph
 
             # Run until interrupt_before=["approval_gate"]
-            state_result = graph.invoke(initial_input=initial_state, config=config)
+            state_result = graph.invoke(initial_state, config=config)
             st.session_state.agent_state = state_result
             st.session_state.pending_proposals = state_result.get("proposals", [])
             st.session_state.execution_log = state_result.get("execution_log", [])
@@ -397,11 +397,11 @@ with tabs[1]:
             approve_and_sync = st.button(
                 f"✅ Approve & Sync ({len(approved_indices)} Selected) to Matrix",
                 type="primary",
-                use_container_width=True,
+                width="stretch",
             )
 
         with btn_col2:
-            reject_all = st.button("❌ Discard All Proposals", use_container_width=True)
+            reject_all = st.button("❌ Discard All Proposals", width="stretch")
 
         if approve_and_sync:
             approved_list = [proposals[i] for i in approved_indices]
@@ -488,7 +488,7 @@ with tabs[2]:
                 data=csv_data,
                 file_name="comparison_matrix.csv",
                 mime="text/csv",
-                use_container_width=True,
+                width="stretch",
             )
         with col_dl2:
             json_data = json.dumps(rows, indent=2).encode("utf-8")
@@ -497,12 +497,12 @@ with tabs[2]:
                 data=json_data,
                 file_name="comparison_matrix.json",
                 mime="application/json",
-                use_container_width=True,
+                width="stretch",
             )
 
     st.markdown("---")
     st.markdown("#### 📋 Current Feature Comparison Registry")
-    st.dataframe(df_matrix, use_container_width=True)
+    st.dataframe(df_matrix, width="stretch")
 
 
 # ==============================================================================
@@ -516,7 +516,7 @@ with tabs[3]:
         "as well as LangGraph HITL gate and dual-ledger fallback."
     )
 
-    run_tests_btn = st.button("▶️ Run Official Test Suite (TC1–TC4)", type="primary", use_container_width=True)
+    run_tests_btn = st.button("▶️ Run Official Test Suite (TC1–TC4)", type="primary", width="stretch")
 
     if run_tests_btn:
         with st.spinner("Executing pytest tests/test_official_suite.py..."):
