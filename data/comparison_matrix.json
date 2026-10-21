@@ -3,90 +3,10 @@
     "Competitor ID": "linear",
     "Competitor Name": "Linear",
     "Feature ID": "feat_jira_imp",
-    "Feature Name": "Universal Workspace Sync: Seamless Migration Engine",
+    "Feature Name": "Jira Importer",
     "Status": "shipped",
-    "Aliases": "Jira Migration Tool, Jira Importer, Universal Workspace Sync: Seamless Migration Engine",
-    "Source URL": "https://linear.app/changelog/2026-04-workspace-sync",
-    "Last Updated": "2026-10-20T03:38:02.737747+00:00"
-  },
-  {
-    "Competitor ID": "linear",
-    "Competitor Name": "Linear",
-    "Feature ID": "feat_dc7eaf2386",
-    "Feature Name": "Linear Asks",
-    "Status": "shipped",
-    "Aliases": "",
-    "Source URL": "https://linear.app/changelog/2026-03-linear-asks",
-    "Last Updated": "2026-10-19T09:01:06.570420+00:00"
-  },
-  {
-    "Competitor ID": "linear",
-    "Competitor Name": "Linear",
-    "Feature ID": "feat_5ceb25f09d",
-    "Feature Name": "Next-Gen AI Workflows",
-    "Status": "announced",
-    "Aliases": "",
-    "Source URL": "https://linear.app/blog/next-gen-ai-preview",
-    "Last Updated": "2026-10-19T09:01:06.612051+00:00"
-  },
-  {
-    "Competitor ID": "linear",
-    "Competitor Name": "Linear",
-    "Feature ID": "feat_ff1d5d9336",
-    "Feature Name": "Linear Asks",
-    "Status": "shipped",
-    "Aliases": "",
-    "Source URL": "https://linear.app/changelog/2026-03-linear-asks",
-    "Last Updated": "2026-10-19T09:01:36.763110+00:00"
-  },
-  {
-    "Competitor ID": "linear",
-    "Competitor Name": "Linear",
-    "Feature ID": "feat_adeb751053",
-    "Feature Name": "Next-Gen AI Workflows",
-    "Status": "announced",
-    "Aliases": "",
-    "Source URL": "https://linear.app/blog/next-gen-ai-preview",
-    "Last Updated": "2026-10-19T09:01:36.792311+00:00"
-  },
-  {
-    "Competitor ID": "linear",
-    "Competitor Name": "Linear",
-    "Feature ID": "feat_b2c94da9e3",
-    "Feature Name": "Linear Asks",
-    "Status": "shipped",
-    "Aliases": "",
-    "Source URL": "https://linear.app/changelog/2026-03-linear-asks",
-    "Last Updated": "2026-10-19T09:04:54.301651+00:00"
-  },
-  {
-    "Competitor ID": "linear",
-    "Competitor Name": "Linear",
-    "Feature ID": "feat_6f1ab0d649",
-    "Feature Name": "Next-Gen AI Workflows",
-    "Status": "announced",
-    "Aliases": "",
-    "Source URL": "https://linear.app/blog/next-gen-ai-preview",
-    "Last Updated": "2026-10-19T09:04:54.330975+00:00"
-  },
-  {
-    "Competitor ID": "linear",
-    "Competitor Name": "Linear",
-    "Feature ID": "feat_54d3b26c3a",
-    "Feature Name": "Linear Asks",
-    "Status": "shipped",
-    "Aliases": "",
-    "Source URL": "https://linear.app/changelog/2026-03-linear-asks",
-    "Last Updated": "2026-10-20T03:38:02.684818+00:00"
-  },
-  {
-    "Competitor ID": "linear",
-    "Competitor Name": "Linear",
-    "Feature ID": "feat_b64322b1d9",
-    "Feature Name": "Next-Gen AI Workflows",
-    "Status": "announced",
-    "Aliases": "",
-    "Source URL": "https://linear.app/blog/next-gen-ai-preview",
-    "Last Updated": "2026-10-20T03:38:02.711656+00:00"
+    "Aliases": "Legacy Importer",
+    "Source URL": "https://linear.app/changelog/legacy-importer",
+    "Last Updated": "2026-10-15T00:00:00"
   }
 ]

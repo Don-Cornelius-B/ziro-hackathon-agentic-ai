@@ -15,6 +15,8 @@ from storage.db import (
     CompetitorModel,
     apply_approved_proposal,
     get_all_features,
+    get_session,
+    reset_db_to_baseline,
     save_proposal,
 )
 
@@ -159,3 +161,70 @@ def commit_proposals(
 
     logger.info(f"Committed {len(approved_proposals)} approved proposals to local matrix.")
     return len(approved_proposals)
+
+
+def reset_ledger_to_baseline(
+    db_session: Optional[Session] = None,
+    csv_path: str = DEFAULT_CSV_PATH,
+    json_path: str = DEFAULT_JSON_PATH,
+) -> List[Dict[str, Any]]:
+    """
+    Reset feature comparison matrix and database to clean seed baseline:
+    1. Ensures data/ directory exists.
+    2. Writes clean baseline entry into data/comparison_matrix.json and data/comparison_matrix.csv.
+    3. Clears rogue test proposals and non-seed features in SQLite storage,
+       leaving only standard competitors and the single seed feature 'feat_jira_imp'.
+    """
+    # 1. Ensure data directories exist
+    os.makedirs("data", exist_ok=True)
+    os.makedirs(os.path.dirname(os.path.abspath(csv_path)), exist_ok=True)
+    os.makedirs(os.path.dirname(os.path.abspath(json_path)), exist_ok=True)
+
+    # 2. Write clean baseline entry to JSON and CSV
+    baseline_rows: List[Dict[str, Any]] = [
+        {
+            "Competitor ID": "linear",
+            "Competitor Name": "Linear",
+            "Feature ID": "feat_jira_imp",
+            "Feature Name": "Jira Importer",
+            "Status": "shipped",
+            "Aliases": "Legacy Importer",
+            "Source URL": "https://linear.app/changelog/legacy-importer",
+            "Last Updated": "2026-10-15T00:00:00",
+        }
+    ]
+
+    fieldnames = [
+        "Competitor ID",
+        "Competitor Name",
+        "Feature ID",
+        "Feature Name",
+        "Status",
+        "Aliases",
+        "Source URL",
+        "Last Updated",
+    ]
+
+    with open(csv_path, mode="w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(baseline_rows)
+
+    with open(json_path, mode="w", encoding="utf-8") as f:
+        json.dump(baseline_rows, f, indent=2, ensure_ascii=False)
+
+    # 3. Clean SQLite database
+    close_after = False
+    session = db_session
+    if session is None:
+        session = get_session()
+        close_after = True
+
+    try:
+        reset_db_to_baseline(session)
+    finally:
+        if close_after:
+            session.close()
+
+    logger.info("Successfully reset ledger and database to clean seed baseline.")
+    return baseline_rows

@@ -181,6 +181,77 @@ def seed_initial_data(session: Session):
     session.commit()
 
 
+def reset_db_to_baseline(session: Session):
+    """
+    Reset SQLite database to clean seed baseline:
+    - Clear all proposals from ProposalModel.
+    - Clear audit snapshots from WeeklySnapshotModel.
+    - Remove all non-seed features from FeatureModel.
+    - Restore seed feature 'feat_jira_imp' to clean baseline state.
+    - Ensure standard competitors (linear, jira, supabase) are seeded.
+    - Explicitly commit and expire all cached instances in the session identity map.
+    """
+    # 1. Clear rogue test proposals
+    session.query(ProposalModel).delete()
+
+    # 2. Clear snapshots
+    session.query(WeeklySnapshotModel).delete()
+
+    # 3. Clear non-seed features
+    session.query(FeatureModel).filter(FeatureModel.id != "feat_jira_imp").delete()
+
+    # 4. Restore feat_jira_imp to clean baseline state
+    seed_feature = session.get(FeatureModel, "feat_jira_imp")
+    if seed_feature:
+        seed_feature.name = "Jira Importer"
+        seed_feature.competitor_id = "linear"
+        seed_feature.aliases = json.dumps(["Legacy Importer"])
+        seed_feature.status = FeatureStatus.SHIPPED.value
+        seed_feature.source_url = "https://linear.app/changelog/legacy-importer"
+        seed_feature.updated_at = datetime(2026, 10, 15, 0, 0, 0, tzinfo=timezone.utc)
+    else:
+        seed_feature = FeatureModel(
+            id="feat_jira_imp",
+            name="Jira Importer",
+            competitor_id="linear",
+            aliases=json.dumps(["Legacy Importer"]),
+            status=FeatureStatus.SHIPPED.value,
+            source_url="https://linear.app/changelog/legacy-importer",
+            updated_at=datetime(2026, 10, 15, 0, 0, 0, tzinfo=timezone.utc),
+        )
+        session.add(seed_feature)
+
+    # 5. Ensure standard competitors exist
+    competitors = [
+        CompetitorModel(
+            id="linear",
+            name="Linear",
+            changelog_url="https://linear.app/changelog",
+            blog_url="https://linear.app/blog",
+        ),
+        CompetitorModel(
+            id="jira",
+            name="Atlassian Jira",
+            changelog_url="https://confluence.atlassian.com/jirasoftware/jira-software-release-notes",
+            blog_url="https://www.atlassian.com/blog/jira-software",
+        ),
+        CompetitorModel(
+            id="supabase",
+            name="Supabase",
+            changelog_url="https://supabase.com/changelog",
+            blog_url="https://supabase.com/blog",
+        ),
+    ]
+
+    for comp in competitors:
+        existing = session.get(CompetitorModel, comp.id)
+        if not existing:
+            session.add(comp)
+
+    session.commit()
+    session.expire_all()
+
+
 def get_known_features(session: Session, competitor_id: Optional[str] = None) -> List[ExistingFeature]:
     """Retrieve known features from registry, optionally filtered by competitor."""
     stmt = select(FeatureModel)

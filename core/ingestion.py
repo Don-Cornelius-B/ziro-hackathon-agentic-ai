@@ -5,6 +5,7 @@ and zero-latency local mock fixtures.
 """
 
 import logging
+import re
 from typing import Optional
 import httpx
 from bs4 import BeautifulSoup
@@ -17,23 +18,41 @@ logger = logging.getLogger(__name__)
 def clean_html(html_text: str) -> str:
     """Extract clean readable text from HTML by removing boilerplate tags."""
     soup = BeautifulSoup(html_text, "html.parser")
-    for tag in soup(["script", "style", "nav", "footer", "header", "noscript", "svg"]):
+    for tag in soup(["head", "script", "style", "nav", "footer", "header", "noscript", "aside", "svg"]):
         tag.decompose()
     text = soup.get_text(separator=" ", strip=True)
     # Collapse multiple whitespaces
     return " ".join(text.split())
 
 
-def extract_title(html_text: str, fallback_url: str) -> str:
-    """Extract title from HTML or fallback to URL slug."""
+def extract_title(html_text: str, fallback_url: str = "") -> str:
+    """Extract feature headline from HTML, avoiding boilerplate navigation and site titles."""
     soup = BeautifulSoup(html_text, "html.parser")
+    for tag in soup(["script", "style", "nav", "footer", "header", "aside"]):
+        tag.decompose()
+
+    headline = None
+    article_header = soup.find(["article", "main", "div"], class_=re.compile(r'(entry|post|release|changelog)', re.I))
+    if article_header:
+        h = article_header.find(["h1", "h2", "h3"])
+        if h:
+            headline = h.get_text(strip=True)
+
+    if not headline:
+        h1 = soup.find("h1")
+        headline = h1.get_text(strip=True) if h1 else None
+
+    if headline:
+        return headline
+
     if soup.title and soup.title.string:
         return soup.title.string.strip()
-    h1 = soup.find("h1")
-    if h1 and h1.text:
-        return h1.text.strip()
-    slug = fallback_url.rstrip("/").split("/")[-1].replace("-", " ").capitalize()
-    return slug or "Competitor Release Note"
+
+    if fallback_url:
+        slug = fallback_url.rstrip("/").split("/")[-1].replace("-", " ").capitalize()
+        if slug:
+            return slug
+    return "Changelog Update"
 
 
 def fetch_page(
@@ -154,7 +173,7 @@ def fetch_dynamic_page(url: str, is_changelog: bool = True) -> RawScrapedItem:
                 )
 
             content = page.content()
-            title = page.title() or extract_title(content, url)
+            title = extract_title(content, url) or page.title() or "Changelog Update"
             clean_content = clean_html(content)
             browser.close()
 

@@ -7,6 +7,7 @@ import json
 import os
 import subprocess
 import sys
+import textwrap
 import time
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
@@ -18,6 +19,7 @@ from core.sheet_sync import (
     DEFAULT_CSV_PATH,
     DEFAULT_JSON_PATH,
     export_matrix_to_ledger,
+    reset_ledger_to_baseline,
 )
 from storage.db import (
     CompetitorModel,
@@ -143,6 +145,22 @@ init_db()
 seed_initial_data(session)
 
 # Session state initialization
+COMPETITOR_URL_MAP = {
+    "LINEAR - Official Feeds": "https://linear.app/changelog",
+    "JIRA - Official Feeds": "https://confluence.atlassian.com/jirasoftware/jira-software-release-notes",
+    "SUPABASE - Official Feeds": "https://supabase.com/changelog",
+    "Custom URL": "",
+}
+
+if "custom_scrape_url" not in st.session_state:
+    st.session_state.custom_scrape_url = COMPETITOR_URL_MAP["LINEAR - Official Feeds"]
+
+
+def on_competitor_change():
+    selected = st.session_state.competitor_selector
+    st.session_state.custom_scrape_url = COMPETITOR_URL_MAP.get(selected, "")
+
+
 if "graph" not in st.session_state:
     st.session_state.graph = build_scout_graph()
 if "thread_id" not in st.session_state:
@@ -202,6 +220,24 @@ with st.sidebar:
     total_features = len(get_all_features(session))
     st.metric("Total Registry Features", total_features)
 
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("### 🧹 Database & Ledger Maintenance")
+    if st.sidebar.button(
+        "🧹 Reset Matrix to Clean Baseline",
+        width="stretch",
+        key="reset_matrix_baseline_btn",
+    ):
+        reset_ledger_to_baseline(db_session=session)
+        st.session_state.pending_proposals = []
+        st.session_state.execution_log = []
+        st.session_state.latest_digest = None
+        st.session_state.latest_receipt = None
+        st.session_state.reset_success_msg = "Matrix reset to clean baseline!"
+        st.rerun()
+
+    if st.session_state.get("reset_success_msg"):
+        st.sidebar.success(st.session_state.reset_success_msg)
+
 # Navigation Tabs
 tabs = st.tabs(
     [
@@ -222,8 +258,10 @@ with tabs[0]:
     with col1:
         competitor_choice = st.selectbox(
             "Target Competitor",
-            options=["linear", "jira", "supabase", "custom"],
-            format_func=lambda x: f"{x.upper()} - Official Feeds" if x != "custom" else "Custom URL",
+            options=list(COMPETITOR_URL_MAP.keys()),
+            index=0,
+            key="competitor_selector",
+            on_change=on_competitor_change,
         )
 
         mode_choice = st.radio(
@@ -243,16 +281,23 @@ with tabs[0]:
                     "TC3: Feature Renamed / Rebranded (Alias)",
                     "TC4: Missing Page / 404 Error (Uncertain)",
                 ],
+                key="test_scenario_choice",
             )
-        else:
-            live_url = st.text_input(
-                "Custom Changelog or Blog URL",
-                value="https://linear.app/changelog",
-            )
+        st.text_input(
+            "Custom Changelog or Blog URL",
+            key="custom_scrape_url",
+            disabled=(mode_choice.startswith("Deterministic Mock")),
+        )
 
-    start_button = st.button("🚀 Run Agentic Scout Pipeline", type="primary", width="stretch")
+    start_button = st.button(
+        "🚀 Run Agentic Scout Pipeline",
+        type="primary",
+        width="stretch",
+        key="launch_scan_btn",
+    )
 
     if start_button:
+        st.session_state.discard_warning_msg = None
         thread_id = f"thread_{int(time.time())}"
         st.session_state.thread_id = thread_id
         config = {"configurable": {"thread_id": thread_id}}
@@ -260,6 +305,16 @@ with tabs[0]:
         force_mock = mode_choice.startswith("Deterministic Mock")
         mock_keys = []
         source_urls = []
+
+        selected_comp = st.session_state.competitor_selector
+        if "LINEAR" in selected_comp:
+            competitor_id = "linear"
+        elif "JIRA" in selected_comp:
+            competitor_id = "jira"
+        elif "SUPABASE" in selected_comp:
+            competitor_id = "supabase"
+        else:
+            competitor_id = "custom"
 
         if force_mock:
             if "Full" in scenario_choice:
@@ -273,10 +328,10 @@ with tabs[0]:
             elif "TC4" in scenario_choice:
                 mock_keys = ["tc4_missing"]
         else:
-            source_urls = [live_url]
+            source_urls = [st.session_state.custom_scrape_url]
 
         initial_state = {
-            "competitor_id": competitor_choice if competitor_choice != "custom" else "custom",
+            "competitor_id": competitor_id,
             "source_urls": source_urls,
             "force_mock": force_mock,
             "mock_keys": mock_keys,
@@ -333,6 +388,9 @@ with tabs[1]:
 
     proposals: List[StagedProposal] = st.session_state.pending_proposals
 
+    if st.session_state.get("discard_warning_msg"):
+        st.warning(st.session_state.discard_warning_msg)
+
     if not proposals:
         st.warning("No staged proposals pending approval. Run the scout in Tab 1 first.")
     else:
@@ -351,7 +409,7 @@ with tabs[1]:
             )
 
             with st.container():
-                st.markdown(
+                card_html = textwrap.dedent(
                     f"""
                     <div class="card-proposal">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
@@ -376,9 +434,9 @@ with tabs[1]:
                             <strong>Evidence Quote:</strong> <em>"{prop.evidence_quote}"</em>
                         </div>
                     </div>
-                    """,
-                    unsafe_allow_html=True,
-                )
+                    """
+                ).strip()
+                st.markdown(card_html, unsafe_allow_html=True)
 
                 col_cb, _ = st.columns([1, 4])
                 with col_cb:
@@ -398,10 +456,15 @@ with tabs[1]:
                 f"✅ Approve & Sync ({len(approved_indices)} Selected) to Matrix",
                 type="primary",
                 width="stretch",
+                key="approve_sync_btn",
             )
 
         with btn_col2:
-            reject_all = st.button("❌ Discard All Proposals", width="stretch")
+            reject_all = st.button(
+                "❌ Discard All Proposals",
+                width="stretch",
+                key="discard_all_btn",
+            )
 
         if approve_and_sync:
             approved_list = [proposals[i] for i in approved_indices]
@@ -429,7 +492,7 @@ with tabs[1]:
 
         if reject_all:
             st.session_state.pending_proposals = []
-            st.warning("All staged proposals were discarded.")
+            st.session_state.discard_warning_msg = "All staged proposals were discarded."
             st.rerun()
 
 
@@ -484,20 +547,22 @@ with tabs[2]:
         with col_dl1:
             csv_data = df_matrix.to_csv(index=False).encode("utf-8")
             st.download_button(
-                "📥 Download CSV Matrix",
+                "📥 Download Comparison Matrix (CSV)",
                 data=csv_data,
                 file_name="comparison_matrix.csv",
                 mime="text/csv",
                 width="stretch",
+                key="download_csv_btn",
             )
         with col_dl2:
             json_data = json.dumps(rows, indent=2).encode("utf-8")
             st.download_button(
-                "📥 Download JSON Matrix",
+                "📥 Download Comparison Matrix (JSON)",
                 data=json_data,
                 file_name="comparison_matrix.json",
                 mime="application/json",
                 width="stretch",
+                key="download_json_btn",
             )
 
     st.markdown("---")
@@ -516,7 +581,12 @@ with tabs[3]:
         "as well as LangGraph HITL gate and dual-ledger fallback."
     )
 
-    run_tests_btn = st.button("▶️ Run Official Test Suite (TC1–TC4)", type="primary", width="stretch")
+    run_tests_btn = st.button(
+        "🧪 Run Official Test Suite (TC1–TC4)",
+        type="primary",
+        width="stretch",
+        key="run_official_tests_btn",
+    )
 
     if run_tests_btn:
         with st.spinner("Executing pytest tests/test_official_suite.py..."):

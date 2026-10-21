@@ -19,7 +19,11 @@ from core.schemas import (
     RawScrapedItem,
     StagedProposal,
 )
-from core.sheet_sync import commit_proposals, export_matrix_to_ledger
+from core.sheet_sync import (
+    commit_proposals,
+    export_matrix_to_ledger,
+    reset_ledger_to_baseline,
+)
 from core.verifier import verify_and_generate_digest
 from fixtures.mock_data import MOCK_FIXTURES, get_mock_item
 from storage.db import (
@@ -329,3 +333,61 @@ def test_verification_sha256_receipt_and_digest(memory_db):
     assert "[UNCERTAIN]" in digest
     assert "[View Original Release Notes](https://linear.app/changelog/asks)" in digest
     assert "Evidence Quote" in digest
+
+
+def test_reset_ledger_to_baseline(memory_db, tmp_path):
+    """
+    Test reset_ledger_to_baseline:
+    - Adds dirty rogue features to memory_db.
+    - Runs reset_ledger_to_baseline with custom paths in tmp_path.
+    - Verifies JSON and CSV matrix contain exactly 1 clean seed record.
+    - Verifies database retains only 1 feature ('feat_jira_imp') with clean baseline state.
+    """
+    test_csv = str(tmp_path / "comparison_matrix.csv")
+    test_json = str(tmp_path / "comparison_matrix.json")
+
+    # Insert a rogue feature to simulate dirty state
+    rogue_feat = FeatureModel(
+        id="feat_rogue_1",
+        name="Rogue Feature",
+        competitor_id="linear",
+        aliases=json.dumps([]),
+        status=FeatureStatus.SHIPPED.value,
+        source_url="https://example.com/rogue",
+        updated_at=datetime.now(timezone.utc),
+    )
+    memory_db.add(rogue_feat)
+    memory_db.commit()
+
+    assert len(get_all_features(memory_db)) >= 2
+
+    rows = reset_ledger_to_baseline(
+        db_session=memory_db,
+        csv_path=test_csv,
+        json_path=test_json,
+    )
+
+    # 1. Output assertion
+    assert len(rows) == 1
+    assert rows[0]["Feature ID"] == "feat_jira_imp"
+    assert rows[0]["Feature Name"] == "Jira Importer"
+    assert rows[0]["Status"] == "shipped"
+    assert rows[0]["Aliases"] == "Legacy Importer"
+    assert rows[0]["Source URL"] == "https://linear.app/changelog/legacy-importer"
+    assert rows[0]["Last Updated"] == "2026-10-15T00:00:00"
+
+    # 2. File assertions
+    assert os.path.exists(test_json)
+    assert os.path.exists(test_csv)
+
+    with open(test_json, "r", encoding="utf-8") as f:
+        loaded = json.load(f)
+        assert len(loaded) == 1
+        assert loaded[0]["Feature ID"] == "feat_jira_imp"
+
+    # 3. Database assertions
+    db_feats = get_all_features(memory_db)
+    assert len(db_feats) == 1
+    assert db_feats[0].id == "feat_jira_imp"
+    assert db_feats[0].name == "Jira Importer"
+
